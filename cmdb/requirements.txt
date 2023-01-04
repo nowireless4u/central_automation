@@ -1,0 +1,7 @@
+azure-identity
+azure-keyvault-secrets
+redis
+usaddress
+pynetbox
+loguru
+
