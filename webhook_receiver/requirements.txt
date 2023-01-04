@@ -1,0 +1,10 @@
+azure-identity
+azure-keyvault-secrets
+fastapi
+redis
+requests
+loguru
+urllib3
+pydantic
+deepdiff
+uvicorn[standard]
