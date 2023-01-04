@@ -20,16 +20,17 @@ Microservices to automate configuration and management of Aruba Central using Ne
 # Install Instructions:
 
   1. Copy the files to host
-  2. Modify example.env for your environment and save as .env.
-  3. Modify creds/central.json for your environment. Note: This will be migrated to Azure Key Vault in the future.
-  4. Create the following Azure Key Vault secrets.
+  2. Create logs folder within central_automation folder.
+  3. Modify example.env for your environment and save as .env.
+  4. Modify creds/central.json for your environment. Note: This will be migrated to Azure Key Vault in the future.
+  5. Create the following Azure Key Vault secrets.
      * central-(CustomerID)-webhooktoken
      * netbox-url
      * netbox-token
      * netbox-secret
      * redis-server
      * redis-password
-  4. Issue docker compose up -d from the central_automation folder.
+  6. Issue docker compose up -d from the central_automation folder.
   
 - - - -
 
