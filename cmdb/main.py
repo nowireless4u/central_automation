@@ -11,13 +11,19 @@ import operator
 import pynetbox
 from loguru import logger
 
+
+consumer=socket.gethostname()
+consumer_group = 'cmdb'
+stream_key = f'{consumer_group}:alert'
+
 # Loguru settings
 logger.remove()
 logger.add(sys.stderr, format="{time} {level} {message}")
-logger.add("/logs/cmdb.log")
-logger.add("/logs/cmdb_retention.log", retention="5 days")
-logger.add("/logs/cmdb_rotation.log", rotation="1 MB")
-logger.add("/logs/cmdb_compressed.log", compression="zip")
+logger.add(f'/logs/{consumer}.log')
+logger.add(f'/logs/{consumer}_retention.log', retention="5 days")
+logger.add(f'/logs/{consumer}_rotation.log', rotation="1 MB")
+logger.add(f'/logs/{consumer}_compressed.log', compression="zip")
+logger.info(f'The Consumer name is {consumer} within {consumer_group} and listening to {stream_key}')
 
 # Azure Key vault authentication
 VAULT_URL = os.environ["AZURE_KEYVAULT_URL"]
@@ -38,12 +44,6 @@ nb = pynetbox.api(
     token=netbox_token.value
 )
 nb.http_session.verify = False
-
-
-consumer=socket.gethostname()
-consumer_group = 'cmdb'
-stream_key = f'{consumer_group}:alert'
-logger.info(f'The Consumer name is {consumer} within {consumer_group} and listening to {stream_key}')
 
 @logger.catch
 def get_message_from_response(response):
@@ -106,22 +106,94 @@ async def process_message(msg):
             logger.info(site_info)
             return site_info
         case {'event': event, 'model': 'site', 'name': name}:
+            address = []
             api_attr = f'dcim.sites'
             obj_fltr = 'name'
             site = dict(operator.attrgetter(api_attr)(nb).get(**{obj_fltr: name}))
-            logger.info(site)
-            raw_address = site['physical_address']
-            logger.info(raw_address)
-            address = usaddress.tag(raw_address)
-            logger.info(address)
-            site_address = f"{address[0]['AddressNumber']} {address[0]['StreetNamePreDirectional']} {address[0]['StreetName']} {address[0]['StreetNamePostType']}"
+            physical_address = site['physical_address']
+            try:
+
+                address = usaddress.tag(physical_address)[0]
+                logger.info(address)
+                address_list = []
+
+                breaktags = [
+                    'AddressNumber',
+                    'StreetNamePreDirectional',
+                    'StreetNamePostType',
+                    'PlaceName',
+                    'StateName',
+                    'ZipCode',
+                    'CountryName'
+                ]
+
+                multibreak = {
+                    'AddressNumberPrefix': ['AddressNumber']
+                }
+
+                parsed = []
+                address_field = ''
+
+                address_items = list(address.items())
+
+                for k, v in address_items:
+
+                    if address_field == '':
+                        address_field = k
+
+                    if k in breaktags:
+
+                        breaktags.remove(k)
+
+                        if k in multibreak:
+                            for mb in multibreak[k]:
+                                if mb in multibreak:
+                                    multibreak.remove(mb)
+
+                        address_list = [i for i in address_list if i]
+
+                        if address_list:
+                            address_list = ' '.join(address_list)
+                            parsed.append(address_list)
+                            address['Parsed_' + address_field] = address_list
+                            address_field = k
+
+                        address_list = [v]
+
+                    else:
+
+                        address_list.append(v)
+
+                address_list = [i for i in address_list if i]
+
+                if address_list:
+                    address_list = ' '.join(address_list)
+                    parsed.append(address_list)
+                    address['Parsed_' + address_field] = address_list
+
+            # Add combined version of address
+
+                address['Parsed_Address_Complete'] = '\n'.join(parsed)
+
+            # Do a little cleanup, just to be nice
+
+                for k in address:
+                    address[k] = address[k].strip()
+
+            # Update addr
+
+                addr = '\r'.join(parsed)
+
+            except KeyError as e:
+
+                address['Error'] = 'Validation Key Error: ' + e.message
+
+            # site_address = f"{address[0]['AddressNumber']} {address[0]['StreetNamePreDirectional']} {address[0]['StreetName']} {address[0]['StreetNamePostType']}"
+            site_address = addr
             logger.info(site_address)
-            site_city = f"{address[0]['PlaceName']}"
-            logger.info(site_city)
-            site_state = f"{address[0]['StateName']}"
-            logger.info(site_state)
-            site_zipcode = f"{address[0]['ZipCode']}"
-            logger.info(site_state)
+            site_city = f"{address['PlaceName']}"
+            site_state = f"{address['StateName']}"
+            site_zipcode = f"{address['ZipCode']}"
             site_info = {
                 'event': event,
                 'name': name,
