@@ -11,7 +11,6 @@ import operator
 import pynetbox
 from loguru import logger
 
-
 consumer=socket.gethostname()
 consumer_group = 'cmdb'
 stream_key = f'{consumer_group}:alert'
@@ -58,8 +57,6 @@ async def process_ap_message(msg):
             device_info = {
                 
             }
-
-
 
 @logger.catch
 async def process_message(msg):
@@ -188,7 +185,6 @@ async def process_message(msg):
 
                 address['Error'] = 'Validation Key Error: ' + e.message
 
-            # site_address = f"{address[0]['AddressNumber']} {address[0]['StreetNamePreDirectional']} {address[0]['StreetName']} {address[0]['StreetNamePostType']}"
             site_address = addr
             logger.info(site_address)
             site_city = f"{address['PlaceName']}"
